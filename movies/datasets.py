@@ -68,8 +68,8 @@ def load_ml_data():
 
     data['release_date'].dropna(inplace=True)
 
-    data.drop(data[data['vote_average'] <= 5].index, inplace=True)
-    data.drop(data[data['vote_count'] <= 450].index, inplace=True)
+    data.drop(data[data['vote_average'] <= 4].index, inplace=True)
+    data.drop(data[data['vote_count'] <= 250].index, inplace=True)
 
     data.drop_duplicates(inplace=True, subset=['id'])
     data['id'] = tf.convertir_entero(data, 'id')

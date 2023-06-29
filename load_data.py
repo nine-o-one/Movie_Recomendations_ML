@@ -39,7 +39,7 @@ def load_ml_model():
     print('Loading Machine Learning Model... Please Wait')
 
     ml_data['vector'] = ml_data['vector'].apply(tf.raiz_palabra)
-    cv = CountVectorizer(max_features=7000, stop_words='english')
+    cv = CountVectorizer(max_features=8000, stop_words='english')
     vectores = cv.fit_transform(ml_data['vector']).toarray().astype(np.float32)
     cercania = cosine_similarity(vectores)
     print('Tamaño del modelo: ' + str(cercania.shape))
