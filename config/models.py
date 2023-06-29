@@ -56,6 +56,13 @@ class Spoken_Language(Base):
 
     movie_id: Mapped[int] = mapped_column(ForeignKey("Peliculas.movie_id"))
 
+class Machine_Learning(Base):
+    __tablename__ = "Indices_ML"  
+
+    id_ml: Mapped[int] = mapped_column(primary_key=True) 
+    
+    movie_id: Mapped[int] = mapped_column(ForeignKey("Peliculas.movie_id"))
+
 class Movies(Base):
     __tablename__ = "Peliculas"
 
@@ -82,3 +89,4 @@ class Movies(Base):
     productora: Mapped[List["Production_Companies"]] = relationship()
     pais_productor: Mapped[List["Production_Countries"]] = relationship()
     idioma: Mapped[List["Spoken_Language"]] = relationship()
+    ml: Mapped[List["Machine_Learning"]] = relationship()

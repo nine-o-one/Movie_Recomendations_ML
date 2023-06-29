@@ -3,9 +3,15 @@ import pandas as pd
 import movies.transformaciones as tf
 import datetime
 
+data_movies = pd.read_csv('raw_data/movies_dataset.csv', low_memory=False)
+data_credits = pd.read_csv('raw_data/credits.csv')
+
+
 def load_credits():
 
-    data = pd.read_csv('raw_data/credits.csv', converters={'cast': literal_eval, 'crew': literal_eval})
+    data = data_credits.copy()
+    data['crew'] = data['crew'].apply(lambda x: literal_eval(x))
+    data['cast'] = data['cast'].apply(lambda x: literal_eval(x))
     crew = tf.desanidar_diccionario(data, 'crew').drop(columns=['credit_id', 'profile_path', 'gender', 'id'])
     cast = tf.desanidar_diccionario(data, 'cast').drop(columns=['credit_id', 'profile_path','cast_id', 'order', 'id', 'gender'])
 
@@ -13,14 +19,14 @@ def load_credits():
 
 def load_movies():
 
-    data = pd.read_csv('raw_data/movies_dataset.csv',low_memory=False, 
-                       converters={'genres': literal_eval})
+    data = data_movies.copy()
     
     data.drop_duplicates(inplace=True, subset=['id'])
     data['id'] = tf.convertir_entero(data, 'id')
     data = data[data.id != 0]
     data.dropna(subset=['title', 'production_companies', 'revenue'], inplace=True)
 
+    data['genres'] = data['genres'].apply(lambda x: literal_eval(x))
     data['production_companies'] = data['production_companies'].apply(lambda x: literal_eval(x))
     data['production_countries'] = data['production_countries'].apply(lambda x: literal_eval(x))
     data['spoken_languages'] = data['spoken_languages'].apply(lambda x: literal_eval(x))
@@ -56,6 +62,44 @@ def load_movies():
 
     return data, genders, production_companies, production_countires, spoken_languages
 
+def load_ml_data():
 
+    data = data_movies.copy()
 
+    data['release_date'].dropna(inplace=True)
+
+    data.drop(data[data['vote_average'] <= 5].index, inplace=True)
+    data.drop(data[data['vote_count'] <= 450].index, inplace=True)
+
+    data.drop_duplicates(inplace=True, subset=['id'])
+    data['id'] = tf.convertir_entero(data, 'id')
+    data= data[data.id != 0]
+    data.dropna(subset=['title', 'revenue'], inplace=True)
+    data= data.merge(data_credits, on='id')
+    data= data[['id', 'title', 'genres', 'overview', 'cast', 'crew', 'tagline']]
+
+    data['crew'] = data['crew'].apply(lambda x: literal_eval(x))
+    data['cast'] = data['cast'].apply(lambda x: literal_eval(x))
+    data['genres'] = data['genres'].apply(lambda x: literal_eval(x))
+
+    data['crew'] = data['crew'].apply(lambda x: tf.convertir_diccionario(x, data['crew'].name, 'name'))
+    data['cast'] = data['cast'].apply(lambda x: tf.convertir_diccionario(x, data['cast'].name, 'name'))
+    data['genres'] = data['genres'].apply(lambda x: tf.convertir_diccionario(x, data['genres'].name, 'name'))
+    data['crew'] = data['crew'].apply(lambda x: [i.replace(" ","") for i in x])
+    data['cast'] = data['cast'].apply(lambda x: [i.replace(" ","") for i in x])
+    data['genres'] = data['genres'].apply(lambda x: [i.replace(" ","") for i in x])
+
+    data['overview'].fillna(' ', inplace = True)
+    data['tagline'].fillna(' ', inplace = True)
+    data['overview'] = data['overview'].apply(lambda x: x.split())
+    data['tagline'] = data['tagline'].apply(lambda x: x.split())
+
+    data['vector'] = data['overview'] + data['tagline'] + data['genres'] + data['cast'] + data['crew']
+    data.drop(columns=['overview', 'tagline', 'crew', 'cast', 'genres'], inplace=True)
+    data['vector'] = data['vector'].apply(lambda x: " ".join(x))
+    data['vector'] = data['vector'].apply(lambda x: x.lower())
+
+    data.rename(columns={'id': 'movie_id'}, inplace=True)
+
+    return data
 

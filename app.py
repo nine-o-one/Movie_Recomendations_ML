@@ -1,8 +1,9 @@
-from config.models import Crew, Movies, Cast
+from config.models import Crew, Movies, Cast, Machine_Learning
 from config.database import engine
 
+import joblib
 import datetime
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.responses import JSONResponse
 import uvicorn
 
@@ -40,7 +41,6 @@ async def cantidad_filmaciones_mes(mes:str):
 
     return {'mes':mes, 'cantidad':res}
 
-
 @app.get('/cantidad_filmaciones_dia{dia}')
 async def cantidad_filmaciones_dia(dia:str):
     res = session.query(Movies).filter(Movies.day.ilike(f'{dia}')).count()
@@ -56,7 +56,11 @@ async def votos_titulo(titulo:str):
     '''Se ingresa el título de una filmación esperando como respuesta el título, la cantidad de votos y el valor promedio de las votaciones. 
     La misma variable deberá de contar con al menos 2000 valoraciones, 
     caso contrario, debemos contar con un mensaje avisando que no cumple esta condición y que por ende, no se devuelve ningun valor.'''
-    return {'titulo':titulo, 'anio':1, 'voto_total':1, 'voto_promedio':1}
+    res  = session.query(Movies).filter(Movies.title.ilike(f'{titulo}')).first()
+
+    respuesta_OK = {'Titulo':titulo.title(), 'Anio':res.year, 'Voto_Total':res.vote_count, 'Voto_Promedio':res.vote_average}
+    respuesta_ALERT = {'Alerta': 'La pelicula consultada no cuenta con suficientes votos.', 'Info:': {'Titulo':titulo.title(), 'Numero_Votos':res.vote_count} }
+    return JSONResponse(status_code = status.HTTP_200_OK, content = respuesta_OK) if res.vote_count >= 2000 else JSONResponse(status_code= status.HTTP_404_NOT_FOUND, content= respuesta_ALERT)
 
 @app.get('/get_actor/{nombre_actor}')
 async def get_actor(nombre_actor:str):
@@ -73,16 +77,16 @@ async def get_actor(nombre_actor:str):
         list_peliculas.append({'Titulo': row[0].title, 'Personaje': row[1].character, 'Anio_Estreno': row[0].year})
     
     retorno_promedio = try_or(ingresos, contador_peliculas, 0)
-
+    
+    list_posibilidades = []
     if len(list_peliculas) == 0:
-        list_posibilidades = []
-        query2 = session.query(Crew).where(Crew.name.ilike(f'{nombre_actor[:2]}%{nombre_actor[-2:]}')).group_by(Crew.name)
+        query2 = session.query(Cast).where(Cast.name.ilike(f'{nombre_actor[:2]}%{nombre_actor[-2:]}')).group_by(Cast.name).limit(100)
         for row in query2:
             list_posibilidades.append(row.name)
 
-    return {'Actor':nombre_actor.title(), 'Cantidad_Filmaciones':contador_peliculas, 'Retorno_Total':ingresos, 
-            'Retorno_Promedio':retorno_promedio, 'Peliculas': list_peliculas} if len(list_peliculas) >= 1 else {'Error': 'No se encontraron registros, pruebe con alguna de las siguientes opciones', 
-                                                              'Nombres': list_posibilidades}
+    respuesta_OK = {'Actor':nombre_actor.title(), 'Cantidad_Filmaciones':contador_peliculas, 'Retorno_Total':ingresos, 'Retorno_Promedio':retorno_promedio, 'Peliculas': list_peliculas}
+    respuesta_ALERT = {'Error': 'No se encontraron registros, pruebe con alguna de las siguientes opciones', 'Nombres': list_posibilidades}
+    return JSONResponse(status_code = status.HTTP_200_OK, content = respuesta_OK) if len(list_peliculas) >= 1 else JSONResponse(status_code = status.HTTP_404_NOT_FOUND, content = respuesta_ALERT)
 
 @app.get('/get_director/{nombre_director}')
 async def get_director(nombre_director:str):
@@ -102,20 +106,29 @@ async def get_director(nombre_director:str):
     
     retorno = try_or(ingresos, presupuesto, 0)
 
+    list_posibilidades = []
     if len(list_peliculas) == 0:
-        list_posibilidades = []
-        query2 = session.query(Crew).where(Crew.name.ilike(f'{nombre_director[:2]}%{nombre_director[-2:]}')).group_by(Crew.name)
+        query2 = session.query(Crew).where(Crew.name.ilike(f'{nombre_director[:2]}%{nombre_director[-2:]}')).group_by(Crew.name).limit(100)
         for row in query2:
             list_posibilidades.append(row.name)
 
-    return {'Director':nombre_director.title(),'Retorno_Total_Generado': retorno,
-    'Peliculas': list_peliculas}  if len(list_peliculas)>=1 else {'Error': 'No se encontraron registros, pruebe con alguna de las siguientes opciones', 
-                                                              'Nombres': list_posibilidades}
+    respuesta_OK = {'Director':nombre_director.title(),'Retorno_Total_Generado': retorno,'Peliculas': list_peliculas}  
+    respuesta_ALERT = {'Error': 'No se encontraron registros, pruebe con alguna de las siguientes opciones', 'Nombres': list_posibilidades}  
+    return JSONResponse(status_code = status.HTTP_200_OK, content = respuesta_OK) if len(list_peliculas)>=1 else JSONResponse(status_code = status.HTTP_404_NOT_FOUND, content = respuesta_ALERT)
 
 # ML
 @app.get('/recomendacion/{titulo}')
 async def recomendacion(titulo:str):
     '''Ingresas un nombre de pelicula y te recomienda las similares en una lista'''
+    cercania = joblib.load("model.joblib")
+    indice_consulta = session.query(Movies, Machine_Learning).join(Machine_Learning).where(Movies.title.ilike(f'{titulo}')).first()[1].id_ml
+    recomendaciones = sorted(list(enumerate(cercania[indice_consulta])), reverse = True, key = lambda x:x[1])[1:6]
+
+    list_recomendaciones = []
+    for movie in recomendaciones:
+        session.query(Movies).filter(Movies.title.ilike(f'{titulo}')).first()
+
+
     return {'lista recomendada': 1}
 
 if __name__ == '__main__':
