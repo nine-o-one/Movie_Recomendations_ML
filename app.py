@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 import uvicorn
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, or_, and_
+from sqlalchemy import or_, and_
 
 print("App is Iniciating...")
 
@@ -27,38 +27,37 @@ cercania = joblib.load("model.joblib")
 @app.get('/peliculas/{key_word}')
 async def peliculas(key_word):
 
-    res = select(Movies).where(or_(Movies.title.icontains(f"{key_word}"), Movies.overview.icontains(f"{key_word}")))
-    res2 = session.query(Movies).filter(Movies.title.icontains(f'{key_word}')).first()
-
+    res = session.query(Movies).where(or_(Movies.title.icontains(f"{key_word}"), Movies.overview.icontains(f"{key_word}")))
+    
     lista = list()
     for movie in session.scalars(res):
         lista.append({'Pelicula': movie.title, 'Estreno': datetime.datetime.isoformat(movie.release_date), 'Resumen': movie.overview})
 
-    return JSONResponse(lista)
+    return JSONResponse(status_code = status.HTTP_200_OK, content = lista)
 
 @app.get('/cantidad_filmaciones_mes/{mes}')
 async def cantidad_filmaciones_mes(mes:str):
     
-    res = session.query(Movies).filter(Movies.month.ilike(f'{mes}')).count()
+    res = session.query(Movies).where(Movies.month.ilike(f'{mes}')).count()
 
-    return {'mes':mes, 'cantidad':res}
+    return JSONResponse(status_code = status.HTTP_200_OK, content={'mes': mes, 'cantidad':res})
 
-@app.get('/cantidad_filmaciones_dia{dia}')
+@app.get('/cantidad_filmaciones_dia/{dia}')
 async def cantidad_filmaciones_dia(dia:str):
-    res = session.query(Movies).filter(Movies.day.ilike(f'{dia}')).count()
-    return {'dia':dia, 'cantidad':res}
+    res = session.query(Movies).where(Movies.day.ilike(f'{dia}')).count()
+    return JSONResponse(status_code = status.HTTP_200_OK, content={'dia':dia, 'cantidad':res})
 
 @app.get('/score_titulo/{titulo}')
 async def score_titulo(titulo: str ):
-    res  = session.query(Movies).filter(Movies.title.ilike(f'{titulo}')).first()
-    return {'titulo':titulo, 'anio': res.year, 'popularidad': res.popularity}
+    res  = session.query(Movies).where(Movies.title.ilike(f'{titulo}')).first()
+    return JSONResponse(status_code = status.HTTP_200_OK, content={'titulo':titulo, 'anio': res.year, 'popularidad': res.popularity})
 
 @app.get('/votos_titulo/{titulo}')
 async def votos_titulo(titulo:str):
     '''Se ingresa el título de una filmación esperando como respuesta el título, la cantidad de votos y el valor promedio de las votaciones. 
     La misma variable deberá de contar con al menos 2000 valoraciones, 
     caso contrario, debemos contar con un mensaje avisando que no cumple esta condición y que por ende, no se devuelve ningun valor.'''
-    res  = session.query(Movies).filter(Movies.title.ilike(f'{titulo}')).first()
+    res  = session.query(Movies).where(Movies.title.ilike(f'{titulo}')).first()
 
     respuesta_OK = {'Titulo':titulo.title(), 'Anio':res.year, 'Voto_Total':res.vote_count, 'Voto_Promedio':res.vote_average}
     respuesta_ALERT = {'Alerta': 'La pelicula consultada no cuenta con suficientes votos.', 'Info:': {'Titulo':titulo.title(), 'Numero_Votos':res.vote_count} }
@@ -152,4 +151,4 @@ async def recomendacion(titulo:str):
         return {'Pelicula consultada': indice_consulta[0].title + ' - ' + str(indice_consulta[0].year),'lista recomendada': list_recomendaciones}
 
 if __name__ == '__main__':
-    uvicorn.run(app, port=8000, reload=True)
+    uvicorn.run(app, port=8000)
