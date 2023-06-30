@@ -3,20 +3,24 @@ import pandas as pd
 import movies.transformaciones as tf
 import datetime
 
+### Carga de los archivos CSV.
 data_movies = pd.read_csv('raw_data/movies_dataset.csv', low_memory=False)
 data_credits = pd.read_csv('raw_data/credits.csv')
 
-
+### Realiza la transformación de credits.csv. Se deanidan los diccionarios y se devuelven como DataFrames independientes.
 def load_credits():
 
     data = data_credits.copy()
+    # Se aplica literal_eval para evaluar el Stirng de forma literal.
     data['crew'] = data['crew'].apply(lambda x: literal_eval(x))
     data['cast'] = data['cast'].apply(lambda x: literal_eval(x))
+    # Se deanidan los diccionarios y se almacenan como DataFrames independientes.
     crew = tf.desanidar_diccionario(data, 'crew').drop(columns=['credit_id', 'profile_path', 'gender', 'id'])
     cast = tf.desanidar_diccionario(data, 'cast').drop(columns=['credit_id', 'profile_path','cast_id', 'order', 'id', 'gender'])
 
     return data, crew, cast
 
+### Realiza la transformación de movies_dataset.csv. Se deanidan los diccionarios y se devuelven como DataFrames independientes.
 def load_movies():
 
     data = data_movies.copy()
@@ -26,10 +30,12 @@ def load_movies():
     data = data[data.id != 0]
     data.dropna(subset=['title', 'production_companies', 'revenue'], inplace=True)
 
-    data['genres'] = data['genres'].apply(lambda x: literal_eval(x))
-    data['production_companies'] = data['production_companies'].apply(lambda x: literal_eval(x))
+    # Se aplica literal_eval para evaluar el Stirng de forma literal.
+    data['genres'] = data['genres'].apply(lambda x: literal_eval(x)) 
+    data['production_companies'] = data['production_companies'].apply(lambda x: literal_eval(x)) 
     data['production_countries'] = data['production_countries'].apply(lambda x: literal_eval(x))
     data['spoken_languages'] = data['spoken_languages'].apply(lambda x: literal_eval(x))
+    # Se deanidan los diccionarios y se almacenan como DataFrames independientes.
     genders = tf.desanidar_diccionario(data[['genres','id']], 'genres').drop(columns=['id'])
     production_companies = tf.desanidar_diccionario(data[['production_companies','id']], 'production_companies').drop(columns=['id']).rename(columns={'name': 'company'})
     production_countires = tf.desanidar_diccionario(data[['production_countries','id']], 'production_countries').drop(columns=['iso_3166_1']).rename(columns={'name': 'country'})
@@ -48,6 +54,7 @@ def load_movies():
     data['year'] = data['release_date'].astype(str).str.extract('(\d\d\d\d).').astype(int)
     data['month'] = data['release_date'].astype(str).str.extract('.[-](\d\d).')
 
+    # Mapea los números de mes y día de la semana de acuerdo a los diccionarios correspondientes.
     month_dictionary = {'01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril', '05': 'Mayo',
             '06': 'Junio', '07': 'Julio', '08': 'Agosto', '09': 'Septiembre', '10': 'Octubre', 
             '11': 'Noviembre', '12': 'Diciembre'}
@@ -56,18 +63,21 @@ def load_movies():
     data['month'] = data['month'].apply(lambda x: month_dictionary[x])
     data['day'] = data['day'].apply(lambda x: day_dictionary[str(x)])
 
+    # Elimina las columnas que no son necesarias para el proyecto.
     data = data.drop(columns=['belongs_to_collection','video', 'imdb_id', 'adult', 'poster_path', 
                               'homepage', 'genres', 'production_companies', 'production_countries', 
                               'spoken_languages', 'status']).rename(columns={'id': 'movie_id'})
 
     return data, genders, production_companies, production_countires, spoken_languages
 
+### Realiza la transformacción de los datasets para devolver un DataFrame con el id de la película y un texto vector que conteniene el resumen, generos, actores y director.
 def load_ml_data():
 
     data = data_movies.copy()
 
     data['release_date'].dropna(inplace=True)
 
+    # Ajusta el tamaño del modelo, ya que con el dataset completo se requiere más de 16G de ram.
     data.drop(data[data['vote_average'] <= 4].index, inplace=True)
     data.drop(data[data['vote_count'] <= 250].index, inplace=True)
 

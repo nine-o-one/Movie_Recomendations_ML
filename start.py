@@ -1,3 +1,4 @@
+## Realiza la carga de toda la base de datos y del modelo ML
 import os
 
 filepath = os.path.dirname(os.path.abspath(__file__)) + '/database.sqlite'

@@ -4,7 +4,9 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column, DeclarativeBase
 
 from typing import List, Optional
 from datetime import datetime
-
+ 
+ ### ORM - Crea todas las tablas y relaciones de la base de datos.
+ 
 class Crew(Base):
     __tablename__ = "Elenco"
 

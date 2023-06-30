@@ -1,8 +1,8 @@
 from config.models import Crew, Movies, Cast, Machine_Learning
 from config.database import engine
+from movies.transformaciones import try_or
 
 import joblib
-import datetime
 from fastapi import FastAPI, status
 from fastapi.responses import JSONResponse
 import uvicorn
@@ -12,51 +12,38 @@ from sqlalchemy import or_, and_
 
 print("App is Iniciating...")
 
-session = Session(engine)
-app = FastAPI() #application instance
+session = Session(engine) #Conexión con la base de datos
+app = FastAPI() #Instancia de la API
 
-def try_or(rev, but, default):
-    try:
-        return rev/but
-    except:
-        return default
+cercania = joblib.load("model.joblib") #Carga el modelo de ML
 
-cercania = joblib.load("model.joblib")
+### Rutas de los Endpoints:
 
-# some routing for displaying the home page
-@app.get('/peliculas/{key_word}')
-async def peliculas(key_word):
-
-    res = session.query(Movies).where(or_(Movies.title.icontains(f"{key_word}"), Movies.overview.icontains(f"{key_word}")))
-    
-    lista = list()
-    for movie in session.scalars(res):
-        lista.append({'Pelicula': movie.title, 'Estreno': datetime.datetime.isoformat(movie.release_date), 'Resumen': movie.overview})
-
-    return JSONResponse(status_code = status.HTTP_200_OK, content = lista)
+# Todos los endpoints realizan consultas a la base de datos mediante el método query de la instancia session.
 
 @app.get('/cantidad_filmaciones_mes/{mes}')
 async def cantidad_filmaciones_mes(mes:str):
-    
+    ''' Este Endpoint devuelve el número de películas que se estrenaron en un mes específico'''
     res = session.query(Movies).where(Movies.month.ilike(f'{mes}')).count()
 
     return JSONResponse(status_code = status.HTTP_200_OK, content={'mes': mes, 'cantidad':res})
 
 @app.get('/cantidad_filmaciones_dia/{dia}')
 async def cantidad_filmaciones_dia(dia:str):
+    '''Este Endpoint devuelve el número de películas estrenadas en un día de la semana específico.'''
     res = session.query(Movies).where(Movies.day.ilike(f'{dia}')).count()
     return JSONResponse(status_code = status.HTTP_200_OK, content={'dia':dia, 'cantidad':res})
 
 @app.get('/score_titulo/{titulo}')
 async def score_titulo(titulo: str ):
+    '''Este Endpoint devuelve la popularidad de una película consultada.'''
     res  = session.query(Movies).where(Movies.title.ilike(f'{titulo}')).first()
     return JSONResponse(status_code = status.HTTP_200_OK, content={'titulo':titulo, 'anio': res.year, 'popularidad': res.popularity})
 
 @app.get('/votos_titulo/{titulo}')
 async def votos_titulo(titulo:str):
-    '''Se ingresa el título de una filmación esperando como respuesta el título, la cantidad de votos y el valor promedio de las votaciones. 
-    La misma variable deberá de contar con al menos 2000 valoraciones, 
-    caso contrario, debemos contar con un mensaje avisando que no cumple esta condición y que por ende, no se devuelve ningun valor.'''
+    '''Este Endpoitn devuelve la valoración y cantidad de votos de una película consultada siempre y cuando esta tenga al menos 2.000 votos. 
+    En caso contrario no devuelve nada.'''
     res  = session.query(Movies).where(Movies.title.ilike(f'{titulo}')).first()
 
     respuesta_OK = {'Titulo':titulo.title(), 'Anio':res.year, 'Voto_Total':res.vote_count, 'Voto_Promedio':res.vote_average}
@@ -65,8 +52,8 @@ async def votos_titulo(titulo:str):
 
 @app.get('/get_actor/{nombre_actor}')
 async def get_actor(nombre_actor:str):
-    '''Se ingresa el nombre de un actor que se encuentre dentro de un dataset debiendo devolver el éxito del mismo medido a través del retorno. 
-    Además, la cantidad de películas que en las que ha participado y el promedio de retorno'''
+    '''Este Endpoint devuelve el éxito de un actor medido a través del retorno (Cuandos dolares genera por cada dolar invertido). 
+    Además, devuelve la cantidad de películas que en las que ha participado y el promedio de retorno'''
     actor = session.query(Cast).where(Cast.name.ilike(f'%{nombre_actor}%')).group_by(Cast.name).first()
 
     list_posibilidades = []
@@ -96,8 +83,8 @@ async def get_actor(nombre_actor:str):
 
 @app.get('/get_director/{nombre_director}')
 async def get_director(nombre_director:str):
-    ''' Se ingresa el nombre de un director que se encuentre dentro de un dataset debiendo devolver el éxito del mismo medido a través del retorno. 
-    Además, deberá devolver el nombre de cada película con la fecha de lanzamiento, retorno individual, costo y ganancia de la misma.'''
+    '''Este Endpoint devuelve el éxito de un director medido a través del retorno. (Cuandos dolares genera por cada dolar invertido). 
+    Además, devuelve el nombre de cada película que ha realizado, incluyendo la fecha de estreno, el retorno individual, costo y ganancia de la misma.'''
     
     director = session.query(Crew).where(and_(Crew.name.ilike(f'%{nombre_director}%'), Crew.job == 'Director')).group_by(Crew.name).first()
 
@@ -127,21 +114,22 @@ async def get_director(nombre_director:str):
 
         return JSONResponse(status_code = status.HTTP_200_OK, content = respuesta_OK)
 
-# ML
+# Machine Learning - Recomencaiones de películas
 @app.get('/recomendacion/{titulo}')
 async def recomendacion(titulo:str):
     '''Ingresas un nombre de pelicula y te recomienda las similares en una lista'''
 
-    indice_consulta = session.query(Movies, Machine_Learning).join(Machine_Learning).where(Movies.title.ilike(f'%{titulo}%')).first()
+    indice_consulta = session.query(Movies, Machine_Learning).join(Machine_Learning).where(Movies.title.ilike(f'{titulo}')).first()
 
     if indice_consulta == None:
 
         return {'Error': 'No se encontró la película consultada.'}
     
-    else:
+    else: #Busca en el modelo ML.
         recomendaciones = sorted(list(enumerate(cercania[indice_consulta[1].id_ml])), reverse = True, key = lambda x:x[1])[1:6]
 
-        list_recomendaciones = []
+        # Itera sobre la lísta de recomendaciones, devolviendo el resultado por cada indice consultado.
+        list_recomendaciones = [] 
         for index in recomendaciones:
             movie = session.query(Movies, Machine_Learning).join(Machine_Learning).where(Machine_Learning.id_ml == index[0]).first()
             crew = session.query(Movies, Crew).join(Crew).where(and_(Movies.movie_id == movie[0].movie_id, Crew.job == 'Director')).first()

@@ -3,6 +3,7 @@ from nltk.stem.porter import PorterStemmer
 
 ps = PorterStemmer()
 
+### Ingresa en la lista de diccionarios y devuelve un DataFrame con los datos extraídos.
 def desanidar_diccionario (df: pd.DataFrame, columna_desanidar: str):
     lista = list()
     for i, row in enumerate(df[f'{columna_desanidar}']):
@@ -15,6 +16,7 @@ def desanidar_diccionario (df: pd.DataFrame, columna_desanidar: str):
 
     return lista
 
+### Extrae los datos de la lísta de diccionarios y los devuelve como una lista de palabras de acuerdo a la condición asignada (Ej. Solo director)
 def convertir_diccionario(data, columna_desanidar: str, campo_extraer: str):
     lista = list()
     if columna_desanidar == 'crew':
@@ -32,6 +34,7 @@ def convertir_diccionario(data, columna_desanidar: str, campo_extraer: str):
                 break
     return lista
 
+### Evalua las columnas numéricas almacenadas como texto y las convierte a número.
 def convertir_entero (df: pd.DataFrame, columna_convertir: int):
     lista = list()
     for i, row in df.iterrows():
@@ -42,6 +45,7 @@ def convertir_entero (df: pd.DataFrame, columna_convertir: int):
     
     return pd.to_numeric(lista, downcast='integer')
 
+### Extrase la raiz de las palabras que se encuentran en el texto vector.
 def raiz_palabra(text):
     lista = list()
 
@@ -49,3 +53,10 @@ def raiz_palabra(text):
         lista.append(ps.stem(i))
 
     return " ".join(lista)
+
+### Función auxiliar que s eutiliza para evaluar el retorno de una película. Si la división es sobre cero retorna default.
+def try_or(rev, but, default):
+    try:
+        return rev/but
+    except:
+        return default

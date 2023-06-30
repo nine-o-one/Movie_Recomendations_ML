@@ -7,19 +7,22 @@ from sklearn.metrics.pairwise import cosine_similarity
 import joblib
 import numpy as np
 
-
 from sqlalchemy.orm import Session
 
-Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine) # Crea la base de datos llamando la instancia BASE del módulo models.
 print("Data Base Creation ... OK")
 
 session = Session(engine)
 
 print('Process Iniciated... Please Wait')
 
+### Los datos se transforman en el módulo datasets.
+
 credits, crew, cast = datasets.load_credits()
 movies, genders, production_companies, production_countires, spoken_languages = datasets.load_movies()
 ml_data = datasets.load_ml_data()
+
+### Realiza la carga de todos los datos ya transformados a la base de datos. 
 
 def load_data():
 
@@ -33,20 +36,21 @@ def load_data():
 
     print('Data Loading Process ... OK')
 
+### Realiza la carga de los índices del modelo de ML a la base datos y crea el archivo joblib con el modelo. Esta función no retorna nada.
 
 def load_ml_model():
     
     print('Loading Machine Learning Model... Please Wait')
 
-    ml_data['vector'] = ml_data['vector'].apply(tf.raiz_palabra)
+    ml_data['vector'] = ml_data['vector'].apply(tf.raiz_palabra) # Convierte cada palabra a su raíz.
     cv = CountVectorizer(max_features=8000, stop_words='english')
-    vectores = cv.fit_transform(ml_data['vector']).toarray().astype(np.float32)
+    vectores = cv.fit_transform(ml_data['vector']).toarray().astype(np.float32) # Se asigna formato Float32 para disminuir el uso de memoria sarificando presición.
     cercania = cosine_similarity(vectores)
-    print('Tamaño del modelo: ' + str(cercania.shape))
-    joblib.dump(cercania, 'model.joblib')
+    print('Tamanio del modelo: ' + str(cercania.shape)) # Imprime el tamaño del modelo para revisar el impacto en memoria.
+    joblib.dump(cercania, 'model.joblib') # Crea el archivo joblib donde se almacena el modelo.
 
     ml_data['id_ml'] = ml_data.index
-    ml_data[['id_ml', 'movie_id']].to_sql('Indices_ML', con=engine, if_exists='append', index=False, chunksize=1000)
+    ml_data[['id_ml', 'movie_id']].to_sql('Indices_ML', con=engine, if_exists='append', index=False, chunksize=1000) # Carga en la base de datos los índices del modelo de ML.
 
     print('Machine Learning Data Loading Process ... OK')
 
