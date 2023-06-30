@@ -13,7 +13,11 @@ from sqlalchemy import or_, and_
 print("App is Iniciating...")
 
 session = Session(engine) #Conexión con la base de datos
-app = FastAPI() #Instancia de la API
+app = FastAPI(
+    title="Movies - Sebastian Saenz",
+    version="1.0",
+    description="Información sobre películas y recomendador.",
+) #Instancia de la API
 
 cercania = joblib.load("model.joblib") #Carga el modelo de ML
 
@@ -117,7 +121,7 @@ async def get_director(nombre_director:str):
 # Machine Learning - Recomencaiones de películas
 @app.get('/recomendacion/{titulo}')
 async def recomendacion(titulo:str):
-    '''Ingresas un nombre de pelicula y te recomienda las similares en una lista'''
+    '''Este Endpoint genera una lista de películas recomendadas a partir del título de una película.'''
 
     indice_consulta = session.query(Movies, Machine_Learning).join(Machine_Learning).where(Movies.title.ilike(f'{titulo}')).first()
 
@@ -136,7 +140,7 @@ async def recomendacion(titulo:str):
 
             list_recomendaciones.append({'Pelicula': movie[0].title, 'Director': crew[1].name, 'Estreno': movie[0].year, 'Resumen': movie[0].overview})
 
-        return {'Pelicula consultada': indice_consulta[0].title + ' - ' + str(indice_consulta[0].year),'lista recomendada': list_recomendaciones}
+        return JSONResponse(status_code = status.HTTP_200_OK, content = {'Pelicula consultada': indice_consulta[0].title + ' - ' + str(indice_consulta[0].year),'lista recomendada': list_recomendaciones})
 
 if __name__ == '__main__':
     uvicorn.run(app, port=8000)

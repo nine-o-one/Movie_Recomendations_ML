@@ -99,7 +99,7 @@ def load_ml_data():
     data['cast'] = data['cast'].apply(lambda x: [i.replace(" ","") for i in x])
     data['genres'] = data['genres'].apply(lambda x: [i.replace(" ","") for i in x])
 
-    data['overview'].fillna(' ', inplace = True)
+    data.dropna(subset=['overview'], inplace = True)
     data['tagline'].fillna(' ', inplace = True)
     data['overview'] = data['overview'].apply(lambda x: x.split())
     data['tagline'] = data['tagline'].apply(lambda x: x.split())
