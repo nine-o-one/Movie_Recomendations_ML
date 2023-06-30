@@ -4,7 +4,7 @@ matplotlib-inline
 nltk
 numpy
 pandas
-pydantic
+pydantic==1.10.9
 scikit-learn
 SQLAlchemy
 uvicorn
